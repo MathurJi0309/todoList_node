@@ -11,7 +11,7 @@ app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static("public"));
 
-
+mongoose.set('strictQuery', false);
 mongoose.connect("mongodb://localhost:27017/todolistDB");
 
 const itemSchema={
@@ -36,6 +36,15 @@ const item3=new Item({
 
 
 const defaultitems=[item1,item2,item3]
+
+//we create the lists schema 
+
+const listSchema={
+    name:String,
+    items:[itemSchema]
+} 
+
+const List=mongoose.model("List",listSchema);
 // Item.insertMany(defaultitems,function(err){
 //     if(err){
 //         console.log(err);
@@ -52,6 +61,7 @@ const defaultitems=[item1,item2,item3]
 app.get("/", function(req, res) {
     
     Item.find({},function(err,fonudItems){
+        console.log("i am here ")
         if(fonudItems.listen===0){
             Item.insertMany(defaultitems,function(err){
                     if(err){
@@ -76,11 +86,21 @@ app.get("/", function(req, res) {
 app.post("/", function(req, res){
 
    const itemName = req.body.newItem;
+   const listName=req.body.list;
    const item =new Item({
     name:itemName
    })
-   item.save();
-   res.redirect("/")
+   if(listName==="Today"){
+    item.save();
+    res.redirect("/")
+   }else{
+    List.findOne({name:listName},function(err,fonudList){
+        fonudList.items.push(item);
+        fonudList.save();
+        res.redirect("/"+listName);
+    })
+   }
+
 
 //   if (req.body.list === "Work") {
 //     workItems.push(item);
@@ -105,9 +125,23 @@ app.post("/delete",function(req,res){
      })
 })
 
-app.get("/work", function(req,res){
-  res.render("list", {listTitle: "Work", newListItems: workItems});
-});
+app.get("/:customListName",function(req,res){
+    const customListName=req.params.customListName;
+    List.findOne({name:customListName},function(err,fonudList){
+        if(!err){
+            if(!fonudList){
+                const list=new List({
+                    name:customListName,
+                    items:defaultitems
+                });
+                list.save();
+                res.redirect("/"+customListName)
+            }else{
+                res.render("list",{listTitle:fonudList.name,newListItems:fonudList.items})
+            }
+        }
+    })  
+})
 
 app.get("/about", function(req, res){
   res.render("about");
